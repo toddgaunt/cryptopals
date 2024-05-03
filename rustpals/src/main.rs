@@ -59,7 +59,15 @@ fn hex2byte(ch: char) -> Result<u8, String> {
 	return Err(String::from(format!("invalid hex character {}", ch)))
 }
 
-fn hex_decode(input: &str) -> Result<Vec<u8>, String>{
+fn hex_encode(input: Vec<u8>) -> String {
+	let mut output = String::new();
+	for b in input {
+		output.push_str(&format!("{:02x}", b));
+	}
+	output
+}
+
+fn hex_decode(input: &str) -> Result<Vec<u8>, String> {
 	if input.len()%2 != 0 {
 		return Err(String::from("input length must be divisible by 2"))
 	}
@@ -80,6 +88,26 @@ fn hex_decode(input: &str) -> Result<Vec<u8>, String>{
 	Ok(output)
 }
 
+fn xor_buf(x: Vec<u8>, y: Vec<u8>) -> Result<Vec<u8>, String> {
+	if x.len() != y.len() {
+		return Err(String::from("buffers must be the same length"))
+	}
+
+	let mut output = Vec::new();
+	for i in 0..x.len() {
+		output.push(x[i] ^ y[i]);
+	}
+
+	return Ok(output)
+}
+
+fn print_result(n: i32, result: Result<(), String>) {
+	match result {
+		Err(s) => print!("Challenge {n}: {RED}{s}{CLEAR}\n"),
+		Ok(_) => print!("Challenge {n}: {GREEN}OK{CLEAR}\n"),
+	}
+}
+
 fn challenge1() -> Result<(), String> {
 	let input = "49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d";
 	let decoded = hex_decode(input);
@@ -97,16 +125,31 @@ fn challenge1() -> Result<(), String> {
 	return Ok(())
 }
 
-fn print_result(n: i32, result: Result<(), String>) {
-	match result {
-		Err(s) => print!("Challenge {n}: {RED}{s}{CLEAR}\n"),
-		Ok(_) => print!("Challenge {n}: {GREEN}OK{CLEAR}\n"),
+fn challenge2() -> Result<(), String> {
+	let a = "1c0111001f010100061a024b53535009181c";
+	let b = "686974207468652062756c6c277320657965";
+	let c = "746865206b696420646f6e277420706c6179";
+
+	let x = hex_decode(a);
+	let y = hex_decode(b);
+	let z = xor_buf(x?, y?);
+
+	let got = hex_encode(z?);
+	let want = c;
+
+	if got != want {
+		return Err(String::from(format!("got {}, want {}", got, want)))
 	}
+
+	return Ok(())
 }
 
 fn main() {
 	print!("Rustpals!\n");
 
 	let result1 = challenge1();
-	print_result(1, result1)
+	print_result(1, result1);
+
+	let result2 = challenge2();
+	print_result(2, result2);
 }

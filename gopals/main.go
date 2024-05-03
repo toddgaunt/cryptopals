@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 const (
@@ -11,6 +12,7 @@ const (
 	clear = "\033[0m"
 )
 
+var asciiTable = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 var base64Table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 // encodeBase64 encodes a slice of bytes into a base64 string. Padding is not
@@ -44,7 +46,7 @@ func encodeBase64(input []byte) ([]byte, error) {
 	return output, nil
 }
 
-func decodeHex(input string) ([]byte, error) {
+func hexDecode(input string) ([]byte, error) {
 	if n := len(input); n%2 != 0 {
 		return nil, errors.New("input length must be divisible by 2")
 	}
@@ -100,7 +102,7 @@ func byte2hex(n byte) []rune {
 	return result[:]
 }
 
-func encodeHex(input []byte) string {
+func hexEncode(input []byte) string {
 	var output []rune
 	for i := 0; i < len(input); i++ {
 		output = append(output, byte2hex(input[i])...)
@@ -124,11 +126,19 @@ func xorBuf(a, b []byte) ([]byte, error) {
 	return output, nil
 }
 
+func xorByte(s []byte, b byte) []byte {
+	var output []byte
+	for i := 0; i < len(s); i++ {
+		output = append(output, s[i]^b)
+	}
+	return output
+}
+
 func Challenge1() error {
 	input := "49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d"
 	want := "SSdtIGtpbGxpbmcgeW91ciBicmFpbiBsaWtlIGEgcG9pc29ub3VzIG11c2hyb29t"
 
-	raw, err := decodeHex(input)
+	raw, err := hexDecode(input)
 	if err != nil {
 		return err
 	}
@@ -150,11 +160,51 @@ func Challenge2() error {
 	b := "686974207468652062756c6c277320657965"
 	c := "746865206b696420646f6e277420706c6179"
 
-	x, _ := decodeHex(a)
-	y, _ := decodeHex(b)
+	x, _ := hexDecode(a)
+	y, _ := hexDecode(b)
 	z, _ := xorBuf(x, y)
 
-	if got, want := encodeHex(z), c; got != want {
+	if got, want := hexEncode(z), c; got != want {
+		return fmt.Errorf("got %s, want %s", got, want)
+	}
+
+	return nil
+}
+
+func Challenge3() error {
+	score := func(text []byte) int {
+		n := 0
+		list := "ETAOIN SHRDLU"
+		for _, c := range text {
+			if strings.ContainsRune(list, rune(c)) || strings.ContainsRune(strings.ToLower(list), rune(c)) {
+				n++
+			}
+		}
+
+		return n
+	}
+
+	// This message has been encrypted with a single character xor
+	enc := "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736"
+	raw, err := hexDecode(enc)
+	if err != nil {
+		return err
+	}
+
+	key := 0
+	highScore := 0
+	for i := 0; i < 256; i++ {
+		dec := xorByte(raw, byte(i))
+		s := score(dec)
+		if s > highScore {
+			highScore = s
+			key = i
+		}
+	}
+
+	got := string(xorByte(raw, byte(key)))
+	want := "Cooking MC's like a pound of bacon"
+	if got != want {
 		return fmt.Errorf("got %s, want %s", got, want)
 	}
 
@@ -180,4 +230,7 @@ func main() {
 
 	err = Challenge2()
 	printResult(2, err)
+
+	err = Challenge3()
+	printResult(3, err)
 }
