@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 )
 
@@ -171,18 +173,20 @@ func Challenge2() error {
 	return nil
 }
 
-func Challenge3() error {
-	score := func(text []byte) int {
-		n := 0
-		list := "ETAOIN SHRDLU"
-		for _, c := range text {
-			if strings.ContainsRune(list, rune(c)) || strings.ContainsRune(strings.ToLower(list), rune(c)) {
-				n++
-			}
+func scoreText1(text []byte) int {
+	n := 0
+	list := "ETAOIN SHRDLU"
+	for _, c := range text {
+		if strings.ContainsRune(list, rune(c)) || strings.ContainsRune(strings.ToLower(list), rune(c)) {
+			n++
 		}
-
-		return n
 	}
+
+	return n
+}
+
+func Challenge3() error {
+	score := scoreText1
 
 	// This message has been encrypted with a single character xor
 	enc := "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736"
@@ -211,6 +215,88 @@ func Challenge3() error {
 	return nil
 }
 
+func readLines(filename string) ([]string, error) {
+	file, err := os.OpenFile(filename, os.O_RDONLY, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+
+	var lines []string
+	for _, line := range strings.Split(string(data), "\n") {
+		lines = append(lines, line)
+	}
+
+	return lines, nil
+}
+
+func Challenge4() error {
+	scoreFn := scoreText1
+
+	lines, err := readLines("4.txt")
+	if err != nil {
+		return err
+	}
+
+	type score struct {
+		key   byte
+		score int
+	}
+
+	rawLines := [][]byte{}
+	for _, enc := range lines {
+		raw, err := hexDecode(enc)
+		if err != nil {
+			return err
+		}
+		rawLines = append(rawLines, raw)
+	}
+
+	highestRank := ""
+	rankedLines := map[string]score{}
+	for i := range rawLines {
+		var p score
+		for k := 0; k < 256; k++ {
+			key := byte(k)
+			dec := xorByte(rawLines[i], key)
+			s := scoreFn(dec)
+			if s > p.score {
+				p = score{key: key, score: s}
+			}
+			if s > rankedLines[highestRank].score {
+				highestRank = lines[i]
+			}
+		}
+		rankedLines[lines[i]] = p
+	}
+
+	winner := rankedLines[highestRank]
+	raw, err := hexDecode(highestRank)
+	if err != nil {
+		return err
+	}
+
+	decoded := xorByte(raw, winner.key)
+
+	/*
+	// Print results
+	for line, score := range(rankedLines) {
+		fmt.Printf("%s: %v\n", line, score)
+	}
+	fmt.Printf("Winner: score=%d %s=%s\n", winner.score, highestRank, decoded)
+	*/
+
+	if got, want := string(decoded), "Now that the party is jumping\n"; got != want {
+		return fmt.Errorf("got %s, want %s", got, want)
+	}
+
+	return nil
+}
+
 func printResult(n int, err error) {
 	fmt.Printf("Challenge %d: ", n)
 	if err != nil {
@@ -233,4 +319,7 @@ func main() {
 
 	err = Challenge3()
 	printResult(3, err)
+
+	err = Challenge4()
+	printResult(4, err)
 }
